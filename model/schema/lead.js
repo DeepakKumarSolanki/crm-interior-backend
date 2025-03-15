@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const cron = require('node-cron');
 
 const fetchSchemaFields = async () => {
     const CustomFieldModel = mongoose.model('CustomField');
@@ -59,6 +60,13 @@ const leadSchema = new mongoose.Schema({
         type: Number,
                 default: 0,
             },
+
+            todayCalls: [
+                {
+                    todayDailed: { type: Number, default: 0 },
+                    createdAt: { type: Date, default: Date.now }
+                }
+            ],       
 });
 
 const initializeLeadSchema = async () => {
@@ -67,6 +75,26 @@ const initializeLeadSchema = async () => {
         leadSchema.add({ [item.name]: item?.backendType });
     });
 };
+
+// Cron job logic to reset `todayDailed` at midnight every day
+cron.schedule('0 0 * * *', async () => {
+    try {
+        const today = moment().startOf('day').toDate(); // Get the start of today (midnight)
+        
+        // Find all contacts and update them
+        await mongoose.model('Contacts').updateMany({}, {
+            $set: { todayCalls: [{ todayDailed: 0, createdAt: today }] } // Resetting to only today's entry
+        });
+
+        console.log('All contacts have had their todayCalls reset for the new day');
+    } catch (error) {
+        console.error('Error resetting todayCalls:', error);
+    }
+});
+
+
+
+
 
 const Lead = mongoose.model('Leads', leadSchema, 'Leads');
 module.exports = { Lead, initializeLeadSchema };
